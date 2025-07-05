@@ -9,9 +9,22 @@ Edit the variables below to customize your search and target location.
 # EDIT THIS TO YOUR OWN API TOKEN AND API URL
 # =============================================================================
 
-# 🔑 API CONFIGURATION
-API_URL = 'http://backend-api.tat.or.th/mobile/buyer/booking/sellers'
-API_TOKEN = 'eyJraWQiOiIwU3p2OTIzQmV5WG04bms3Y1RZWnNwTGRMSE1sekR4WlBLNUhyRTRvcEJrPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiIxOTRhYzVlYy05MGYxLTcwMDYtYjZjNC02YzE2ZThlZjE2YzYiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAuYXAtc291dGhlYXN0LTEuYW1hem9uYXdzLmNvbVwvYXAtc291dGhlYXN0LTFfTHVUN2lVZGVEIiwiY2xpZW50X2lkIjoiNWNscjZlM3Jvcmw2YmJpMDR0bHZybmg1dWYiLCJvcmlnaW5fanRpIjoiZDU5NTUwYjctZWQxMS00MjBmLTgxYTItYTc1MDRkOTIyZWU1IiwiZXZlbnRfaWQiOiI1ODdlMDBmYS1kNDg5LTQzMWItYmNiYy0wNzQwZThhODZhZmMiLCJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJzY29wZSI6ImF3cy5jb2duaXRvLnNpZ25pbi51c2VyLmFkbWluIiwiYXV0aF90aW1lIjoxNzUxNjkzOTk2LCJleHAiOjE3NTE3ODc0MzMsImlhdCI6MTc1MTcwMTAzMywianRpIjoiZmM4YmY5NDMtYWUzMC00NDNiLTgxMmYtNjU2NDMxZjU1ZmU4IiwidXNlcm5hbWUiOiIxNzMwMjAxMzgyNzE5In0.rxqJ60Er_ePfHtRVb4rGEkoe54WU2tAuIjTW2MW1MwYv6YLbM6exvcKYpdX686xR2AgGCkJIG5tNPbJOpfEH58zjdSeS-nEN_qZJ4DYOszlIF8Dv6gFr6fn67mcIMh7zm3Pi8KFK7Ifs1i2iNJideNOVBxADKVjdFrGNKKzGy74kYRtJ2CQRCo4-0xpy2tOWi0QHCBJp_TuWtHTA1ltTFIcVrziQNvxKGlCC1vWc8bR6DOglpyBsHfLNoiufXCixFu4Xt0p5Gmtc_lpmodNho7rC6F1s7wh_DZESpaD37wpYVPF4gvc6tf5AaOpGCgsY-zTCvqCIQwW3_HHyxc0Ajw'
+# Load environment variables from .env file
+import os
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
+
+# 🔑 API CONFIGURATION (from .env file)
+API_URL = os.getenv('API_URL')
+API_TOKEN = os.getenv('API_TOKEN')
+
+# Validate required environment variables
+if not API_URL:
+    raise ValueError("API_URL not found in .env file")
+if not API_TOKEN:
+    raise ValueError("API_TOKEN not found in .env file")
 
 # 🎯 TARGET LOCATION (Your desired location)
 TARGET_LATITUDE = 14.4428927
