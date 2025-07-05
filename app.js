@@ -1344,7 +1344,7 @@ function clearUserPreferences() {
         localStorage.removeItem(USER_PREFERENCES_KEY);
         
         // Reset form to default values
-        document.getElementById('apiUrl').value = 'http://backend-api.tat.or.th/mobile/buyer/booking/sellers';
+        document.getElementById('apiUrl').value = 'https://backend-api.tat.or.th/mobile/buyer/booking/sellers';
         document.getElementById('apiToken').value = '';
         document.getElementById('targetLat').value = '14.4428927';
         document.getElementById('targetLon').value = '101.3728028';
