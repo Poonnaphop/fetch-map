@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗺️ เที่ยวไทยคนละครึ่ง Map Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+        
+        .form-section {
+            padding: 30px;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .map-container {
+            height: 600px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+        
+        .card {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px 15px 0 0 !important;
+            border: none;
+            font-weight: 600;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .results-section {
+            display: none;
+            padding: 30px;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stats-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        /* Ensure markers are clickable */
+        .leaflet-marker-icon {
+            cursor: pointer !important;
+            z-index: 1000 !important;
+        }
+        
+        .seller-marker, .target-marker {
+            cursor: pointer !important;
+            pointer-events: auto !important;
+        }
+        
+        /* Prevent map from capturing marker clicks */
+        .map-container {
+            pointer-events: auto;
+        }
+        
+        .leaflet-container {
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Header -->
+            <div class="header">
+                <h1><i class="fas fa-map-marked-alt"></i> เที่ยวไทยคนละครึ่ง Map Generator</h1>
+                <p class="mb-0">Generate interactive maps with accommodation and restaurant data</p>
+            </div>
+
+            <!-- Configuration Form -->
+            <div class="form-section">
+                <form id="mapForm">
+                    <div class="row">
+                        <!-- API Configuration -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <i class="fas fa-key"></i> API Configuration
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="apiUrl" class="form-label">API URL</label>
+                                        <input type="url" class="form-control" id="apiUrl" required 
+                                               placeholder="https://your-api-endpoint.com/api" value="http://backend-api.tat.or.th/mobile/buyer/booking/sellers">
+                                               
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="apiToken" class="form-label">API Token</label>
+                                        <input  class="form-control" id="apiToken" required 
+                                               placeholder="Enter your API token">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Target Location -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <i class="fas fa-crosshairs"></i> Target Location
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="targetLat" class="form-label">Latitude</label>
+                                            <input type="number" class="form-control" id="targetLat" 
+                                                   value="14.4428927" step="any" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="targetLon" class="form-label">Longitude</label>
+                                            <input type="number" class="form-control" id="targetLon" 
+                                                   value="101.3728028" step="any" required>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Search Configuration -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <i class="fas fa-search"></i> Search Configuration
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="searchProvinces" class="form-label">Search Provinces</label>
+                                        
+                                        
+                                        <textarea class="form-control" id="searchProvinces" rows="10" 
+                                                  placeholder="Enter provinces, one per line:&#10;กรุงเทพมหานคร&#10;เชียงใหม่&#10;ภูเก็ต&#10;พัทยา">กรุงเทพมหานคร
+เชียงใหม่
+ภูเก็ต</textarea>
+                                        <small class="form-text text-muted">Enter one province name per line in Thai</small>
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-info" id="addCommonProvincesBtn">
+                                                <i class="fas fa-plus"></i> Add all Provinces
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-warning" id="clearAllProvincesBtn">
+                                                <i class="fas fa-times"></i> Clear All
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="formatProvincesBtn">
+                                                <i class="fas fa-magic"></i> Format List
+                                            </button>
+                                        </div>
+                                    </div>
+                                   
+                                    
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Business Types -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <i class="fas fa-building"></i> Business Types
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Accommodation Types</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="500040001" id="hotel" checked>
+                                            <label class="form-check-label" for="hotel">โรงแรม</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="500040002" id="homestay" checked>
+                                            <label class="form-check-label" for="homestay">โฮมเสตย์</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="500040003" id="resort" checked>
+                                            <label class="form-check-label" for="resort">รีสอร์ท</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="500040004" id="daily" checked>
+                                            <label class="form-check-label" for="daily">ที่พักรายวัน</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="500040005" id="hostel">
+                                            <label class="form-check-label" for="hostel">โฮสเทล</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="500040007" id="mansion">
+                                            <label class="form-check-label" for="mansion">หอพัก แมนชั่น</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Restaurant Types</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="50001" id="restaurant">
+                                            <label class="form-check-label" for="restaurant">ร้านอาหาร</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-map"></i> Generate Map
+                        </button>
+                        <div class="btn-group mt-2" role="group">
+                            <button type="button" class="btn btn-outline-info btn-sm" id="cacheStatsBtn">
+                                <i class="fas fa-chart-bar"></i> Cache Stats
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" id="clearCacheBtn">
+                                <i class="fas fa-trash"></i> Clear Cache
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Loading Section -->
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <h5>Generating your map...</h5>
+                    <p class="text-muted">This may take a few moments while we fetch the data</p>
+                    
+                    <!-- Progress Section -->
+                    <div class="progress-section mt-3" id="progressSection" style="display: none;">
+                        <div class="progress mb-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progressBar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-details">
+                            <small class="text-muted" id="progressText">Initializing...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection">
+                <div class="row mb-4">
+                    <div class="col-md-2">
+                        <div class="stats-card">
+                            <div class="stats-number" id="totalSellers">0</div>
+                            <div class="stats-label">Total Sellers</div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stats-card">
+                            <div class="stats-number" id="accommodationCount">0</div>
+                            <div class="stats-label">Accommodations</div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stats-card">
+                            <div class="stats-number" id="restaurantCount">0</div>
+                            <div class="stats-label">Restaurants</div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stats-card">
+                            <div class="stats-number" id="apiCalls">0</div>
+                            <div class="stats-label">API Calls</div>
+                        </div>
+                    </div>
+                 
+                </div>
+
+                <div class="map-container" id="mapContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
