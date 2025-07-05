@@ -7,8 +7,77 @@ let currentPage = 0;
 let cacheHits = 0;
 let cacheMisses = 0;
 
+// User preferences storage
+const USER_PREFERENCES_KEY = 'map_generator_preferences';
+
+// Save user preferences
+function saveUserPreferences() {
+    try {
+        const preferences = {
+            apiUrl: document.getElementById('apiUrl').value,
+            apiToken: document.getElementById('apiToken').value,
+            targetLat: document.getElementById('targetLat').value,
+            targetLon: document.getElementById('targetLon').value,
+            mapStyle: document.getElementById('mapStyle').value,
+            searchProvinces: document.getElementById('searchProvinces').value,
+            accommodationTypes: Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
+                .filter(checkbox => ['hotel', 'homestay', 'resort', 'daily', 'hostel', 'mansion'].includes(checkbox.id))
+                .map(checkbox => checkbox.id),
+            restaurantTypes: Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
+                .filter(checkbox => checkbox.id === 'restaurant')
+                .map(checkbox => checkbox.id)
+        };
+        
+        localStorage.setItem(USER_PREFERENCES_KEY, JSON.stringify(preferences));
+        console.log('User preferences saved');
+    } catch (error) {
+        console.error('Error saving preferences:', error);
+    }
+}
+
+// Load user preferences
+function loadUserPreferences() {
+    try {
+        const saved = localStorage.getItem(USER_PREFERENCES_KEY);
+        if (!saved) return;
+        
+        const preferences = JSON.parse(saved);
+        
+        // Restore form values
+        if (preferences.apiUrl) document.getElementById('apiUrl').value = preferences.apiUrl;
+        if (preferences.apiToken) document.getElementById('apiToken').value = preferences.apiToken;
+        if (preferences.targetLat) document.getElementById('targetLat').value = preferences.targetLat;
+        if (preferences.targetLon) document.getElementById('targetLon').value = preferences.targetLon;
+        if (preferences.mapStyle) document.getElementById('mapStyle').value = preferences.mapStyle;
+        if (preferences.searchProvinces) document.getElementById('searchProvinces').value = preferences.searchProvinces;
+        
+        // Restore accommodation checkboxes
+        if (preferences.accommodationTypes) {
+            preferences.accommodationTypes.forEach(type => {
+                const checkbox = document.getElementById(type);
+                if (checkbox) checkbox.checked = true;
+            });
+        }
+        
+        // Restore restaurant checkboxes
+        if (preferences.restaurantTypes) {
+            preferences.restaurantTypes.forEach(type => {
+                const checkbox = document.getElementById(type);
+                if (checkbox) checkbox.checked = true;
+            });
+        }
+        
+        console.log('User preferences loaded');
+    } catch (error) {
+        console.error('Error loading preferences:', error);
+    }
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    // Load user preferences on page load
+    loadUserPreferences();
+    
     // Update zoom value display
     const zoomSlider = document.getElementById('mapZoom');
     const zoomValue = document.getElementById('zoomValue');
@@ -57,6 +126,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (clearCacheBtn) {
         clearCacheBtn.addEventListener('click', clearAllCache);
     }
+    
+    // Clear preferences button
+    const clearPreferencesBtn = document.getElementById('clearPreferencesBtn');
+    if (clearPreferencesBtn) {
+        clearPreferencesBtn.addEventListener('click', clearUserPreferences);
+    }
+    
+    // Add map style switcher event listeners
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('#mapStyleSwitcher button')) {
+            const button = e.target.closest('#mapStyleSwitcher button');
+            const style = button.getAttribute('data-style');
+            if (style) {
+                switchMapStyle(style);
+            }
+        }
+    });
 });
 
 // Handle form submission
@@ -66,6 +152,12 @@ async function handleFormSubmit(event) {
     // Show loading
     showLoading();
     hideResults();
+    
+    // Hide map style switcher during loading
+    const mapStyleSwitcher = document.getElementById('mapStyleSwitcher');
+    if (mapStyleSwitcher) {
+        mapStyleSwitcher.style.display = 'none';
+    }
     
     try {
         // Get form data
@@ -106,6 +198,9 @@ async function handleFormSubmit(event) {
         showResults();
         updateStats(sellersData);
         
+        // Save user preferences after successful map generation
+        saveUserPreferences();
+        
     } catch (error) {
         console.error('Error:', error);
         showError('An error occurred while generating the map. Please check your API credentials and try again.');
@@ -136,6 +231,7 @@ function getFormData() {
         targetLat: parseFloat(document.getElementById('targetLat').value),
         targetLon: parseFloat(document.getElementById('targetLon').value),
         zoomLevel: 10, // Default zoom level since mapZoom element was removed
+        mapStyle: document.getElementById('mapStyle').value,
         provinces: provinces,
         accommodationTypes: accommodationTypes,
         restaurantTypes: restaurantTypes
@@ -485,10 +581,24 @@ function generateMap(sellersData, formData) {
     // Create map
     map = L.map('mapContainer').setView([centerLat, centerLon], formData.zoomLevel);
     
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    // Add Google Maps tile layer with different style options
+    const googleMapsTiles = {
+        'roadmap': 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+        'satellite': 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+        'hybrid': 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        'terrain': 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}'
+    };
+    
+    // Use selected map style
+    const selectedStyle = formData.mapStyle || 'roadmap';
+    const tileLayer = L.tileLayer(googleMapsTiles[selectedStyle], {
+        attribution: '© Google Maps',
+        maxZoom: 18
     }).addTo(map);
+    
+    // Store tile layer reference for style switching
+    map.tileLayer = tileLayer;
+    map.googleMapsTiles = googleMapsTiles;
     
     // Add target location marker
     const targetMarker = L.marker([formData.targetLat, formData.targetLon], {
@@ -625,6 +735,13 @@ function generateMap(sellersData, formData) {
     }
     
     console.log(`Map generated with ${sellersData.length} sellers (${accommodationCount} accommodations, ${restaurantCount} restaurants)`);
+    
+    // Show map style switcher and set initial active state
+    const mapStyleSwitcher = document.getElementById('mapStyleSwitcher');
+    if (mapStyleSwitcher) {
+        mapStyleSwitcher.style.display = 'block';
+        updateMapStyleButtons(selectedStyle);
+    }
 }
 
 // Create popup content for seller
@@ -1219,4 +1336,76 @@ function clearAllCache() {
         console.error('Error clearing cache:', error);
         showError('Failed to clear cache. Please try again.');
     }
+}
+
+// Clear user preferences
+function clearUserPreferences() {
+    try {
+        localStorage.removeItem(USER_PREFERENCES_KEY);
+        
+        // Reset form to default values
+        document.getElementById('apiUrl').value = 'http://backend-api.tat.or.th/mobile/buyer/booking/sellers';
+        document.getElementById('apiToken').value = '';
+        document.getElementById('targetLat').value = '14.4428927';
+        document.getElementById('targetLon').value = '101.3728028';
+        document.getElementById('mapStyle').value = 'roadmap';
+        document.getElementById('searchProvinces').value = 'กรุงเทพมหานคร\nเชียงใหม่\nภูเก็ต';
+        
+        // Reset checkboxes
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            if (['hotel', 'homestay', 'resort', 'daily'].includes(checkbox.id)) {
+                checkbox.checked = true;
+            } else {
+                checkbox.checked = false;
+            }
+        });
+        
+        showSuccess('User preferences cleared successfully.');
+        console.log('User preferences cleared');
+    } catch (error) {
+        console.error('Error clearing preferences:', error);
+        showError('Failed to clear preferences. Please try again.');
+    }
+}
+
+// Switch map style without reloading data
+function switchMapStyle(style) {
+    if (!map || !map.tileLayer || !map.googleMapsTiles) {
+        console.error('Map not initialized');
+        return;
+    }
+    
+    try {
+        // Remove current tile layer
+        map.removeLayer(map.tileLayer);
+        
+        // Add new tile layer with selected style
+        map.tileLayer = L.tileLayer(map.googleMapsTiles[style], {
+            attribution: '© Google Maps',
+            maxZoom: 18
+        }).addTo(map);
+        
+        // Update active button state
+        updateMapStyleButtons(style);
+        
+        console.log(`Map style switched to: ${style}`);
+    } catch (error) {
+        console.error('Error switching map style:', error);
+        showError('Failed to switch map style. Please try again.');
+    }
+}
+
+// Update map style button states
+function updateMapStyleButtons(activeStyle) {
+    const buttons = document.querySelectorAll('#mapStyleSwitcher button');
+    buttons.forEach(button => {
+        const style = button.getAttribute('data-style');
+        if (style === activeStyle) {
+            button.classList.remove('btn-outline-primary');
+            button.classList.add('btn-primary');
+        } else {
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-outline-primary');
+        }
+    });
 } 
